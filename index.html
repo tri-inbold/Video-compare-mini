@@ -178,6 +178,37 @@
             font-size: 11px;
             font-family: monospace;
             white-space: nowrap;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 3px;
+            transition: all 0.2s ease;
+        }
+
+        .time-display:hover {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+        }
+
+        .time-input {
+            background: #333;
+            border: 1px solid #666;
+            color: #fff;
+            font-size: 11px;
+            font-family: monospace;
+            padding: 4px 8px;
+            border-radius: 3px;
+            width: 100px;
+            text-align: center;
+        }
+
+        .time-input:focus {
+            outline: none;
+            border-color: #fff;
+        }
+
+        .mute-btn {
+            font-size: 16px;
+            width: 40px;
         }
 
         .play-controls {
@@ -210,9 +241,11 @@
         <div class="play-controls">
             <button class="btn" id="playBtn">▶</button>
             <button class="btn" id="pauseBtn">⏸</button>
+            <button class="btn mute-btn" id="muteBtn">🔊</button>
         </div>
         
         <div class="time-display" id="timeDisplay">00:00 / 00:00</div>
+        <input type="text" class="time-input" id="timeInput" style="display: none;" placeholder="mm:ss">
         
         <div class="timeline-wrapper" id="timelineWrapper">
             <div class="timeline-progress" id="timelineProgress">
@@ -237,7 +270,9 @@
                 this.timelineHandle = document.getElementById('timelineHandle');
                 this.playBtn = document.getElementById('playBtn');
                 this.pauseBtn = document.getElementById('pauseBtn');
+                this.muteBtn = document.getElementById('muteBtn');
                 this.timeDisplay = document.getElementById('timeDisplay');
+                this.timeInput = document.getElementById('timeInput');
                 this.videoName1 = document.getElementById('videoName1');
                 this.videoName2 = document.getElementById('videoName2');
                 
@@ -246,6 +281,7 @@
                 this.isPlaying = false;
                 this.isDragging = false;
                 this.playbackRate = 1;
+                this.isMuted = false;
                 
                 this.init();
             }
@@ -255,6 +291,8 @@
                 this.setupControls();
                 this.setupTimeline();
                 this.setupSpeedControls();
+                this.setupTimeInput();
+                this.setupKeyboardShortcuts();
             }
             
             setupFileInputs() {
@@ -289,9 +327,52 @@
                 });
             }
             
+            setupTimeInput() {
+                this.timeDisplay.addEventListener('click', () => {
+                    this.timeDisplay.style.display = 'none';
+                    this.timeInput.style.display = 'inline-block';
+                    this.timeInput.value = this.formatTime(this.currentTime);
+                    this.timeInput.focus();
+                    this.timeInput.select();
+                });
+                
+                this.timeInput.addEventListener('blur', () => this.commitTimeInput());
+                this.timeInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') this.commitTimeInput();
+                    if (e.key === 'Escape') this.cancelTimeInput();
+                });
+            }
+            
+            setupKeyboardShortcuts() {
+                document.addEventListener('keydown', (e) => {
+                    // Chỉ xử lý shortcut khi không focus vào input
+                    if (e.target.tagName === 'INPUT') return;
+                    
+                    switch(e.code) {
+                        case 'Space':
+                            e.preventDefault();
+                            this.togglePlayPause();
+                            break;
+                        case 'KeyM':
+                            this.toggleMute();
+                            break;
+                        case 'Digit1':
+                            this.setSpeed(1);
+                            break;
+                        case 'Digit2':
+                            this.setSpeed(2);
+                            break;
+                        case 'Digit3':
+                            this.setSpeed(3);
+                            break;
+                    }
+                });
+            }
+            
             setupControls() {
                 this.playBtn.addEventListener('click', () => this.play());
                 this.pauseBtn.addEventListener('click', () => this.pause());
+                this.muteBtn.addEventListener('click', () => this.toggleMute());
             }
             
             setupTimeline() {
@@ -360,6 +441,28 @@
                 this.video2.pause();
             }
             
+            togglePlayPause() {
+                if (this.isPlaying) {
+                    this.pause();
+                } else {
+                    this.play();
+                }
+            }
+            
+            toggleMute() {
+                this.isMuted = !this.isMuted;
+                this.video1.muted = this.isMuted;
+                this.video2.muted = this.isMuted;
+                this.muteBtn.textContent = this.isMuted ? '🔇' : '🔊';
+            }
+            
+            setSpeed(speed) {
+                document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
+                document.querySelector(`[data-speed="${speed}"]`).classList.add('active');
+                this.playbackRate = speed;
+                this.updatePlaybackRate();
+            }
+            
             updatePlaybackRate() {
                 this.video1.playbackRate = this.playbackRate;
                 this.video2.playbackRate = this.playbackRate;
@@ -380,6 +483,35 @@
             
             updateTimeDisplay() {
                 this.timeDisplay.textContent = `${this.formatTime(this.currentTime)} / ${this.formatTime(this.duration)}`;
+            }
+            
+            commitTimeInput() {
+                const timeStr = this.timeInput.value.trim();
+                const time = this.parseTime(timeStr);
+                
+                if (time >= 0 && time <= this.duration) {
+                    this.currentTime = time;
+                    this.video1.currentTime = time;
+                    this.video2.currentTime = time;
+                    this.updateUI();
+                }
+                
+                this.cancelTimeInput();
+            }
+            
+            cancelTimeInput() {
+                this.timeInput.style.display = 'none';
+                this.timeDisplay.style.display = 'inline-block';
+            }
+            
+            parseTime(timeStr) {
+                const parts = timeStr.split(':');
+                if (parts.length === 2) {
+                    const minutes = parseInt(parts[0]) || 0;
+                    const seconds = parseInt(parts[1]) || 0;
+                    return minutes * 60 + seconds;
+                }
+                return -1;
             }
             
             formatTime(s) {
