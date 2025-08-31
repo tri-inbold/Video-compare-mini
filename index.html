@@ -2,559 +2,231 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Video Comparison</title>
+    <title>Dual Video Player</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        /* CSS siêu nhỏ gọn */
+        :root {
+            --bg-color: #121212;
+            --panel-bg: rgba(30, 30, 30, 0.85);
+            --border-color: #333;
+            --text-color: #e0e0e0;
+            --text-color-light: #999;
+            --highlight-color: #00aaff;
         }
 
-        body {
-            background: #000;
-            font-family: 'Arial', sans-serif;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
+        body, html {
+            margin: 0; padding: 0; font-family: Arial, sans-serif;
+            background: var(--bg-color); color: var(--text-color);
+            overflow: hidden; height: 100vh; width: 100vw;
         }
 
-        .video-container {
-            flex: 1;
-            display: flex;
-            position: relative;
+        #app-container { display: flex; height: 100%; width: 100%; }
+
+        .video-slot {
+            width: 50%; height: 100%; position: relative;
+            display: flex; justify-content: center; align-items: center;
+            border: 2px dashed var(--border-color); box-sizing: border-box;
+            transition: border-color 0.3s;
         }
 
-        .video-panel {
-            flex: 1;
-            background: #000;
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        .video-slot:first-child { border-right: 1px solid var(--border-color); }
+        .video-slot:last-child { border-left: 1px solid var(--border-color); }
+        .video-slot.dragging-over {
+            border-color: var(--highlight-color);
+            background-color: rgba(0, 170, 255, 0.1);
+        }
+        .video-slot.has-video { border-color: transparent; }
+        .video-slot video { max-width: 100%; max-height: 100%; display: block; }
+        .drop-text { position: absolute; font-size: 1.5em; color: #555; pointer-events: none; }
+        .hidden { display: none !important; }
+
+        #controls {
+            position: absolute; bottom: 20px; left: 50%;
+            transform: translateX(-50%); z-index: 100;
+            display: flex; align-items: center; gap: 15px;
+            padding: 10px 20px;
+            background: var(--panel-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
         }
 
-        .divider {
-            width: 1px;
-            background: #333;
-            height: 100%;
-        }
+        .icon-btn { background: none; border: none; color: var(--text-color); cursor: pointer; padding: 5px; }
+        .icon-btn svg { width: 22px; height: 22px; fill: currentColor; display: block; }
+        #timeline-slider { width: 450px; cursor: pointer; }
 
-        .video-name {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            color: #fff;
-            font-size: 12px;
-            opacity: 0.7;
-            z-index: 10;
-            background: rgba(0,0,0,0.5);
-            padding: 5px 10px;
-            border-radius: 3px;
-            pointer-events: none;
-        }
-
-        video {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-        }
-
-        .drop-area {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #666;
-            font-size: 14px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .drop-area:hover {
-            color: #999;
-        }
-
-        .drop-area.dragover {
-            background: rgba(255,255,255,0.05);
-            color: #fff;
-        }
-
-        .file-input {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            opacity: 0;
-            cursor: pointer;
-        }
-
-        .controls {
-            height: 80px;
-            background: #000;
-            display: flex;
-            align-items: center;
-            padding: 0 40px;
-            gap: 20px;
-            border-top: 1px solid #333;
-        }
-
-        .timeline-wrapper {
-            flex: 1;
-            position: relative;
-            height: 8px;
-            background: #333;
-            border-radius: 4px;
-            cursor: pointer;
-            margin: 0 20px;
-        }
-
-        .timeline-progress {
-            height: 100%;
-            background: #fff;
-            border-radius: 4px;
-            width: 0%;
-            position: relative;
-        }
-
-        .timeline-mismatch {
-            position: absolute;
-            top: 0;
-            height: 100%;
-            background: #f44336;
-            border-radius: 4px;
-        }
-
-        .timeline-handle {
-            position: absolute;
-            top: 50%;
-            right: -6px;
-            transform: translateY(-50%);
-            width: 12px;
-            height: 12px;
-            background: #fff;
-            border-radius: 50%;
-            cursor: pointer;
-        }
-
-        .btn {
-            background: none;
-            border: 1px solid #666;
-            color: #fff;
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-            transition: all 0.2s ease;
-        }
-
-        .btn:hover {
-            border-color: #fff;
-        }
-
-        .btn.active {
-            background: #fff;
-            color: #000;
-        }
-
-        .speed-controls {
-            display: flex;
-            gap: 5px;
-        }
-
+        #speed-controls { display: flex; background: rgba(0,0,0,0.2); border-radius: 8px; }
         .speed-btn {
-            width: 35px;
-            padding: 6px;
-            text-align: center;
+            background: none; border: none; color: var(--text-color-light);
+            padding: 6px 12px; cursor: pointer; font-size: 14px;
         }
-
-        .time-display {
-            color: #999;
-            font-size: 11px;
-            font-family: monospace;
-            white-space: nowrap;
-            cursor: pointer;
-            padding: 4px 8px;
-            border-radius: 3px;
-            transition: all 0.2s ease;
-        }
-
-        .time-display:hover {
-            background: rgba(255,255,255,0.1);
-            color: #fff;
-        }
-
-        .time-input {
-            background: #333;
-            border: 1px solid #666;
-            color: #fff;
-            font-size: 11px;
-            font-family: monospace;
-            padding: 4px 8px;
-            border-radius: 3px;
-            width: 100px;
-            text-align: center;
-        }
-
-        .time-input:focus {
-            outline: none;
-            border-color: #fff;
-        }
-
-        .mute-btn {
-            font-size: 16px;
-            width: 40px;
-        }
-
-        .play-controls {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
+        .speed-btn.active { color: #fff; background: var(--highlight-color); border-radius: 8px; }
     </style>
 </head>
 <body>
-    <div class="video-container">
-        <div class="video-panel">
-            <div class="video-name" id="videoName1"></div>
-            <input type="file" class="file-input" id="fileInput1" accept="video/*">
-            <div class="drop-area" id="dropArea1">Drop video here</div>
-            <video id="video1" style="display: none;" preload="metadata"></video>
+    <input type="file" id="file-input" accept="video/*" multiple style="display: none;">
+
+    <div id="app-container">
+        <div class="video-slot" id="slot-left">
+            <video id="video-left" playsinline></video>
+            <p class="drop-text" id="drop-text-left">Kéo & Thả Video Trái (hoặc Ctrl+D)</p>
         </div>
-        
-        <div class="divider"></div>
-        
-        <div class="video-panel">
-            <div class="video-name" id="videoName2"></div>
-            <input type="file" class="file-input" id="fileInput2" accept="video/*">
-            <div class="drop-area" id="dropArea2">Drop video here</div>
-            <video id="video2" style="display: none;" preload="metadata"></video>
+        <div class="video-slot" id="slot-right">
+            <video id="video-right" playsinline></video>
+            <p class="drop-text" id="drop-text-right">Kéo & Thả Video Phải (hoặc Ctrl+D)</p>
         </div>
     </div>
 
-    <div class="controls">
-        <div class="play-controls">
-            <button class="btn" id="playBtn">▶</button>
-            <button class="btn" id="pauseBtn">⏸</button>
-            <button class="btn mute-btn" id="muteBtn">🔊</button>
-        </div>
-        
-        <div class="time-display" id="timeDisplay">00:00 / 00:00</div>
-        <input type="text" class="time-input" id="timeInput" style="display: none;" placeholder="mm:ss">
-        
-        <div class="timeline-wrapper" id="timelineWrapper">
-            <div class="timeline-progress" id="timelineProgress">
-                <div class="timeline-handle" id="timelineHandle"></div>
-            </div>
-        </div>
-        
-        <div class="speed-controls">
-            <button class="btn speed-btn active" data-speed="1">1x</button>
-            <button class="btn speed-btn" data-speed="2">2x</button>
-            <button class="btn speed-btn" data-speed="3">3x</button>
+    <div id="controls">
+        <button id="play-pause-btn" class="icon-btn" title="Play/Pause (Spacebar)">
+            <svg id="play-icon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            <svg id="pause-icon" class="hidden" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+        </button>
+        <button id="mute-btn" class="icon-btn" title="Mute/Unmute">
+            <svg id="unmute-icon" class="hidden" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+            <svg id="mute-icon" viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L7 9H3v6h4l5 5v-8.27l-5.73-5.73z"/></svg>
+        </button>
+        <input type="range" id="timeline-slider" value="0" step="0.01" max="100">
+        <div id="speed-controls">
+            <button class="speed-btn active" data-speed="1">1x</button>
+            <button class="speed-btn" data-speed="2">2x</button>
+            <button class="speed-btn" data-speed="3">3x</button>
         </div>
     </div>
 
     <script>
-        class VideoComparisonApp {
-            constructor() {
-                this.video1 = document.getElementById('video1');
-                this.video2 = document.getElementById('video2');
-                this.timelineWrapper = document.getElementById('timelineWrapper');
-                this.timelineProgress = document.getElementById('timelineProgress');
-                this.timelineHandle = document.getElementById('timelineHandle');
-                this.playBtn = document.getElementById('playBtn');
-                this.pauseBtn = document.getElementById('pauseBtn');
-                this.muteBtn = document.getElementById('muteBtn');
-                this.timeDisplay = document.getElementById('timeDisplay');
-                this.timeInput = document.getElementById('timeInput');
-                this.videoName1 = document.getElementById('videoName1');
-                this.videoName2 = document.getElementById('videoName2');
-                
-                this.currentTime = 0;
-                this.duration = 0;
-                this.isPlaying = false;
-                this.isDragging = false;
-                this.playbackRate = 1;
-                this.isMuted = false;
-                
-                this.init();
-            }
-            
-            init() {
-                this.setupFileInputs();
-                this.setupControls();
-                this.setupTimeline();
-                this.setupSpeedControls();
-                this.setupTimeInput();
-                this.setupKeyboardShortcuts();
-            }
-            
-            setupFileInputs() {
-                const inputs = [
-                    { input: document.getElementById('fileInput1'), area: document.getElementById('dropArea1'), video: this.video1, name: this.videoName1, num: 1 },
-                    { input: document.getElementById('fileInput2'), area: document.getElementById('dropArea2'), video: this.video2, name: this.videoName2, num: 2 }
-                ];
-                
-                inputs.forEach(({input, area, video, name, num}) => {
-                    input.addEventListener('change', (e) => {
-                        if (e.target.files[0]) this.loadVideo(e.target.files[0], video, area, name);
-                    });
-                    
-                    area.addEventListener('dragover', (e) => {
-                        e.preventDefault();
-                        area.classList.add('dragover');
-                    });
-                    
-                    area.addEventListener('dragleave', () => area.classList.remove('dragover'));
-                    
-                    area.addEventListener('drop', (e) => {
-                        e.preventDefault();
-                        area.classList.remove('dragover');
-                        const file = e.dataTransfer.files[0];
-                        if (file?.type.startsWith('video/')) {
-                            this.loadVideo(file, video, area, name);
-                        }
-                    });
-                    
-                    video.addEventListener('loadedmetadata', () => this.updateDuration());
-                    video.addEventListener('timeupdate', () => this.updateProgress());
+        document.addEventListener('DOMContentLoaded', () => {
+            // Lấy các element cần thiết
+            const fileInput = document.getElementById('file-input');
+            const videoLeft = document.getElementById('video-left');
+            const videoRight = document.getElementById('video-right');
+            const slotLeft = document.getElementById('slot-left');
+            const slotRight = document.getElementById('slot-right');
+            const timeline = document.getElementById('timeline-slider');
+            const playPauseBtn = document.getElementById('play-pause-btn');
+            const playIcon = document.getElementById('play-icon');
+            const pauseIcon = document.getElementById('pause-icon');
+            const muteBtn = document.getElementById('mute-btn');
+            const muteIcon = document.getElementById('mute-icon');
+            const unmuteIcon = document.getElementById('unmute-icon');
+            const speedButtons = document.querySelectorAll('.speed-btn');
+
+            const videos = [videoLeft, videoRight];
+            const slots = [slotLeft, slotRight];
+            let readyStates = [false, false];
+
+            // --- Thiết lập ban đầu ---
+            videoLeft.muted = false; // Video trái có thể phát âm thanh
+            videoRight.muted = true; // Video phải luôn tắt tiếng để tránh xung đột
+            updateMuteButton();
+
+            // --- Chức năng Tải Video ---
+            function setupDragDrop(slot, index) {
+                slot.addEventListener('dragover', e => { e.preventDefault(); slot.classList.add('dragging-over'); });
+                slot.addEventListener('dragleave', e => { e.preventDefault(); slot.classList.remove('dragging-over'); });
+                slot.addEventListener('drop', e => {
+                    e.preventDefault(); slot.classList.remove('dragging-over');
+                    const file = e.dataTransfer.files[0];
+                    if (file && file.type.startsWith('video/')) loadVideo(index, file);
                 });
             }
-            
-            setupTimeInput() {
-                this.timeDisplay.addEventListener('click', () => {
-                    this.timeDisplay.style.display = 'none';
-                    this.timeInput.style.display = 'inline-block';
-                    this.timeInput.value = this.formatTime(this.currentTime);
-                    this.timeInput.focus();
-                    this.timeInput.select();
-                });
-                
-                this.timeInput.addEventListener('blur', () => this.commitTimeInput());
-                this.timeInput.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') this.commitTimeInput();
-                    if (e.key === 'Escape') this.cancelTimeInput();
-                });
+            slots.forEach(setupDragDrop);
+
+            function handleFileSelect(e) {
+                const files = e.target.files;
+                if (!files.length) return;
+                if (files.length >= 1 && files[0].type.startsWith('video/')) loadVideo(0, files[0]);
+                if (files.length >= 2 && files[1].type.startsWith('video/')) loadVideo(1, files[1]);
+                fileInput.value = ''; // Reset để có thể chọn lại cùng file
+            }
+            fileInput.addEventListener('change', handleFileSelect);
+
+            function loadVideo(index, file) {
+                const video = videos[index];
+                video.src = URL.createObjectURL(file);
+                document.getElementById(`drop-text-${index === 0 ? 'left' : 'right'}`).classList.add('hidden');
+                slots[index].classList.add('has-video');
+                video.addEventListener('loadedmetadata', () => {
+                    readyStates[index] = true;
+                    if (readyStates[0] && readyStates[1]) syncTimelineDuration();
+                    else if (readyStates[0] || readyStates[1]) syncTimelineDuration();
+                }, { once: true });
+            }
+
+            // --- Chức năng Điều khiển Video ---
+            function syncTimelineDuration() {
+                const duration1 = videoLeft.duration || 0;
+                const duration2 = videoRight.duration || 0;
+                const maxDuration = Math.max(duration1, duration2);
+                if (isFinite(maxDuration)) timeline.max = maxDuration;
+            }
+
+            function togglePlayPause() {
+                if (!videoLeft.src && !videoRight.src) return;
+                const isPaused = videoLeft.paused || videoRight.paused;
+                const action = isPaused ? 'play' : 'pause';
+                videos.forEach(v => v.src && v[action]());
+            }
+
+            function updatePlayButton(isPlaying) {
+                 playIcon.classList.toggle('hidden', isPlaying);
+                 pauseIcon.classList.toggle('hidden', !isPlaying);
             }
             
-            setupKeyboardShortcuts() {
-                document.addEventListener('keydown', (e) => {
-                    // Chỉ xử lý shortcut khi không focus vào input
-                    if (e.target.tagName === 'INPUT') return;
-                    
-                    switch(e.code) {
-                        case 'Space':
-                            e.preventDefault();
-                            this.togglePlayPause();
-                            break;
-                        case 'KeyM':
-                            this.toggleMute();
-                            break;
-                        case 'Digit1':
-                            this.setSpeed(1);
-                            break;
-                        case 'Digit2':
-                            this.setSpeed(2);
-                            break;
-                        case 'Digit3':
-                            this.setSpeed(3);
-                            break;
-                    }
-                });
+            function toggleMute() {
+                videoLeft.muted = !videoLeft.muted;
+                updateMuteButton();
+            }
+
+            function updateMuteButton() {
+                muteIcon.classList.toggle('hidden', !videoLeft.muted);
+                unmuteIcon.classList.toggle('hidden', videoLeft.muted);
             }
             
-            setupControls() {
-                this.playBtn.addEventListener('click', () => this.play());
-                this.pauseBtn.addEventListener('click', () => this.pause());
-                this.muteBtn.addEventListener('click', () => this.toggleMute());
-            }
-            
-            setupTimeline() {
-                this.timelineWrapper.addEventListener('click', (e) => this.seek(e));
-                this.timelineHandle.addEventListener('mousedown', (e) => this.startDrag(e));
-                document.addEventListener('mousemove', (e) => this.drag(e));
-                document.addEventListener('mouseup', () => this.stopDrag());
-            }
-            
-            setupSpeedControls() {
-                document.querySelectorAll('.speed-btn').forEach(btn => {
-                    btn.addEventListener('click', () => {
-                        document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
-                        btn.classList.add('active');
-                        this.playbackRate = parseFloat(btn.dataset.speed);
-                        this.updatePlaybackRate();
-                    });
+            function setPlaybackSpeed(speed) {
+                videos.forEach(v => v.playbackRate = speed);
+                speedButtons.forEach(btn => {
+                    btn.classList.toggle('active', parseFloat(btn.dataset.speed) === speed);
                 });
             }
+
+            // --- Gán sự kiện cho các nút điều khiển ---
+            playPauseBtn.addEventListener('click', togglePlayPause);
+            muteBtn.addEventListener('click', toggleMute);
+
+            timeline.addEventListener('input', () => {
+                const time = timeline.value;
+                videos.forEach(v => v.currentTime = time);
+            });
             
-            loadVideo(file, video, area, nameEl) {
-                const url = URL.createObjectURL(file);
-                video.src = url;
-                video.style.display = 'block';
-                area.style.display = 'none';
-                nameEl.textContent = file.name;
-                nameEl.style.display = 'block';
-            }
-            
-            updateDuration() {
-                const d1 = this.video1.duration || 0;
-                const d2 = this.video2.duration || 0;
-                this.duration = Math.max(d1, d2);
-                this.renderMismatch(d1, d2);
-                this.updateTimeDisplay();
-            }
-            
-            renderMismatch(d1, d2) {
-                const existing = document.querySelector('.timeline-mismatch');
-                if (existing) existing.remove();
-                
-                if (d1 > 0 && d2 > 0 && d1 !== d2) {
-                    const shorter = Math.min(d1, d2);
-                    const longer = Math.max(d1, d2);
-                    
-                    const mismatch = document.createElement('div');
-                    mismatch.className = 'timeline-mismatch';
-                    mismatch.style.left = `${(shorter/longer)*100}%`;
-                    mismatch.style.width = `${((longer-shorter)/longer)*100}%`;
-                    
-                    this.timelineWrapper.appendChild(mismatch);
+            videoLeft.addEventListener('timeupdate', () => {
+                if (!timeline.matches(':active')) timeline.value = videoLeft.currentTime;
+            });
+
+            videoLeft.addEventListener('play', () => updatePlayButton(true));
+            videoLeft.addEventListener('pause', () => updatePlayButton(false));
+
+            speedButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const speed = parseFloat(button.dataset.speed);
+                    setPlaybackSpeed(speed);
+                });
+            });
+
+            // --- Phím tắt ---
+            window.addEventListener('keydown', (e) => {
+                if (e.target.tagName === 'INPUT') return;
+                if (e.ctrlKey && e.key.toLowerCase() === 'd') {
+                    e.preventDefault();
+                    fileInput.click();
                 }
-            }
-            
-            play() {
-                if (this.duration === 0) return;
-                this.isPlaying = true;
-                this.video1.play().catch(()=>{});
-                this.video2.play().catch(()=>{});
-                this.updatePlaybackRate();
-            }
-            
-            pause() {
-                this.isPlaying = false;
-                this.video1.pause();
-                this.video2.pause();
-            }
-            
-            togglePlayPause() {
-                if (this.isPlaying) {
-                    this.pause();
-                } else {
-                    this.play();
+                if (e.code === 'Space') {
+                    e.preventDefault();
+                    togglePlayPause();
                 }
-            }
-            
-            toggleMute() {
-                this.isMuted = !this.isMuted;
-                this.video1.muted = this.isMuted;
-                this.video2.muted = this.isMuted;
-                this.muteBtn.textContent = this.isMuted ? '🔇' : '🔊';
-            }
-            
-            setSpeed(speed) {
-                document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
-                document.querySelector(`[data-speed="${speed}"]`).classList.add('active');
-                this.playbackRate = speed;
-                this.updatePlaybackRate();
-            }
-            
-            updatePlaybackRate() {
-                this.video1.playbackRate = this.playbackRate;
-                this.video2.playbackRate = this.playbackRate;
-            }
-            
-            updateProgress() {
-                if (this.isDragging) return;
-                this.currentTime = Math.max(this.video1.currentTime || 0, this.video2.currentTime || 0);
-                this.updateUI();
-            }
-            
-            updateUI() {
-                if (this.duration === 0) return;
-                const percent = (this.currentTime / this.duration) * 100;
-                this.timelineProgress.style.width = `${percent}%`;
-                this.updateTimeDisplay();
-            }
-            
-            updateTimeDisplay() {
-                this.timeDisplay.textContent = `${this.formatTime(this.currentTime)} / ${this.formatTime(this.duration)}`;
-            }
-            
-            commitTimeInput() {
-                const timeStr = this.timeInput.value.trim();
-                const time = this.parseTime(timeStr);
-                
-                if (time >= 0 && time <= this.duration) {
-                    this.currentTime = time;
-                    this.video1.currentTime = time;
-                    this.video2.currentTime = time;
-                    this.updateUI();
-                }
-                
-                this.cancelTimeInput();
-            }
-            
-            cancelTimeInput() {
-                this.timeInput.style.display = 'none';
-                this.timeDisplay.style.display = 'inline-block';
-            }
-            
-            parseTime(timeStr) {
-                const parts = timeStr.split(':');
-                if (parts.length === 2) {
-                    const minutes = parseInt(parts[0]) || 0;
-                    const seconds = parseInt(parts[1]) || 0;
-                    return minutes * 60 + seconds;
-                }
-                return -1;
-            }
-            
-            formatTime(s) {
-                const m = Math.floor(s/60);
-                const sec = Math.floor(s%60);
-                return `${m.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')}`;
-            }
-            
-            seek(e) {
-                if (this.duration === 0) return;
-                const rect = this.timelineWrapper.getBoundingClientRect();
-                const percent = (e.clientX - rect.left) / rect.width;
-                this.currentTime = Math.max(0, Math.min(percent * this.duration, this.duration));
-                this.video1.currentTime = this.currentTime;
-                this.video2.currentTime = this.currentTime;
-                this.updateUI();
-            }
-            
-            startDrag(e) {
-                e.preventDefault();
-                this.isDragging = true;
-                this.wasPlaying = this.isPlaying;
-                if (this.isPlaying) this.pause();
-            }
-            
-            drag(e) {
-                if (!this.isDragging || this.duration === 0) return;
-                const rect = this.timelineWrapper.getBoundingClientRect();
-                const percent = Math.max(0, Math.min((e.clientX - rect.left) / rect.width, 1));
-                this.currentTime = percent * this.duration;
-                this.video1.currentTime = this.currentTime;
-                this.video2.currentTime = this.currentTime;
-                this.updateUI();
-            }
-            
-            stopDrag() {
-                if (!this.isDragging) return;
-                this.isDragging = false;
-                if (this.wasPlaying) this.play();
-            }
-        }
-        
-        new VideoComparisonApp();
+            });
+        });
     </script>
 </body>
 </html>
