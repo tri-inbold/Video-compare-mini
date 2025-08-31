@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>Dual Video Player</title>
+    <title>Video-compare-mini</title>
     <style>
         /* CSS siêu nhỏ gọn */
         :root {
@@ -97,7 +97,6 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // Lấy các element cần thiết
             const fileInput = document.getElementById('file-input');
             const videoLeft = document.getElementById('video-left');
             const videoRight = document.getElementById('video-right');
@@ -115,10 +114,11 @@
             const videos = [videoLeft, videoRight];
             const slots = [slotLeft, slotRight];
             let readyStates = [false, false];
+            let nextTargetSlot = 0;
 
             // --- Thiết lập ban đầu ---
-            videoLeft.muted = false; // Video trái có thể phát âm thanh
-            videoRight.muted = true; // Video phải luôn tắt tiếng để tránh xung đột
+            videoLeft.muted = false;
+            videoRight.muted = false; // THAY ĐỔI: Cả hai video đều có tiếng
             updateMuteButton();
 
             // --- Chức năng Tải Video ---
@@ -132,25 +132,52 @@
                 });
             }
             slots.forEach(setupDragDrop);
-
+            
             function handleFileSelect(e) {
                 const files = e.target.files;
                 if (!files.length) return;
-                if (files.length >= 1 && files[0].type.startsWith('video/')) loadVideo(0, files[0]);
-                if (files.length >= 2 && files[1].type.startsWith('video/')) loadVideo(1, files[1]);
-                fileInput.value = ''; // Reset để có thể chọn lại cùng file
+                if (!videoLeft.hasAttribute('src') && !videoRight.hasAttribute('src')) {
+                    if (files[0] && files[0].type.startsWith('video/')) loadVideo(0, files[0]);
+                    if (files[1] && files[1].type.startsWith('video/')) {
+                        loadVideo(1, files[1]);
+                        nextTargetSlot = 0;
+                    } else {
+                        nextTargetSlot = 1;
+                    }
+                } else {
+                    if (files[0] && files[0].type.startsWith('video/')) {
+                        if (!videoLeft.hasAttribute('src')) {
+                           loadVideo(0, files[0]);
+                           nextTargetSlot = 1;
+                        } else if (!videoRight.hasAttribute('src')) {
+                           loadVideo(1, files[0]);
+                           nextTargetSlot = 0;
+                        } else {
+                           loadVideo(nextTargetSlot, files[0]);
+                           nextTargetSlot = (nextTargetSlot + 1) % 2;
+                        }
+                    }
+                }
+                fileInput.value = '';
             }
             fileInput.addEventListener('change', handleFileSelect);
 
             function loadVideo(index, file) {
                 const video = videos[index];
+                if (video.src) URL.revokeObjectURL(video.src);
                 video.src = URL.createObjectURL(file);
+                video.setAttribute('src', video.src);
+                
                 document.getElementById(`drop-text-${index === 0 ? 'left' : 'right'}`).classList.add('hidden');
                 slots[index].classList.add('has-video');
+
                 video.addEventListener('loadedmetadata', () => {
                     readyStates[index] = true;
-                    if (readyStates[0] && readyStates[1]) syncTimelineDuration();
-                    else if (readyStates[0] || readyStates[1]) syncTimelineDuration();
+                    if (videoLeft.src && videoRight.src && readyStates[0] && readyStates[1]) {
+                        syncTimelineDuration();
+                    } else if (videoLeft.src || videoRight.src) {
+                        syncTimelineDuration();
+                    }
                 }, { once: true });
             }
 
@@ -159,14 +186,14 @@
                 const duration1 = videoLeft.duration || 0;
                 const duration2 = videoRight.duration || 0;
                 const maxDuration = Math.max(duration1, duration2);
-                if (isFinite(maxDuration)) timeline.max = maxDuration;
+                if (isFinite(maxDuration) && maxDuration > 0) timeline.max = maxDuration;
             }
 
             function togglePlayPause() {
                 if (!videoLeft.src && !videoRight.src) return;
                 const isPaused = videoLeft.paused || videoRight.paused;
                 const action = isPaused ? 'play' : 'pause';
-                videos.forEach(v => v.src && v[action]());
+                videos.forEach(v => { if (v.src) v[action](); });
             }
 
             function updatePlayButton(isPlaying) {
@@ -174,11 +201,14 @@
                  pauseIcon.classList.toggle('hidden', !isPlaying);
             }
             
+            // THAY ĐỔI: Nút mute điều khiển cả hai video
             function toggleMute() {
-                videoLeft.muted = !videoLeft.muted;
+                const newMutedState = !videoLeft.muted;
+                videos.forEach(v => v.muted = newMutedState);
                 updateMuteButton();
             }
 
+            // Giữ nguyên, vì nó chỉ cần kiểm tra trạng thái của một video là đủ
             function updateMuteButton() {
                 muteIcon.classList.toggle('hidden', !videoLeft.muted);
                 unmuteIcon.classList.toggle('hidden', videoLeft.muted);
