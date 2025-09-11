@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Video-compare-final</title>
+    <link rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAACKElEQVR4AexZsS5FQRC9RIvQayn5CKGSSCT8AwWJxk8ICj4CiUIlodZqaWlF0Eo4J3l57+a6Ozu7c/ftIyvn2H33zuzM2dmdxDNe/fGfIqClgN94Vic+pkOpQLq91a387yswh324BD/A+rmW5jAVIfnW3zHmFVZaAJ2QKsDkH+C5AU6CwwZjriPoPchcMPyGJOAI5rNgbswggUOwFZKAlVaPPA9XXWElASyhy8/yfAzOGsKsj6n+rDGRBDRMR/NjEZC7LqUCpQLGHShHyLiBZvdSAfMWGhcIqIAxUiL3IiDRxqqX7boCp4rI2wobtUmXAm4RdQ/04QQGy2An6ErAE7LZBL9AHyZgcA7Og2Z0IeANWayBHDGowD8Tr2HJEUM8rAK449x5ViA0C1aAlWBFQn379lYBu1iJZx9DFHgXjqM8e04WAew4Z711LMMOnKM7U6wA7rqm4yA3FaI7U4wAnneee55/VXYKI94D3gfeC4X5wCRUADtNaMcZRJNn7EjBnSlEAHecO88KyKnEv2UFWAlWRLVKiABrx1ElBCN2Jt4JTP0IEcCuU//22DX3R/VbqLtSiAB/2AwWkoDPDPm4Qr67XkgC7lxOGZ7fuGJKAg7gxLaJISteEX0fbIUk4BEei+AFyH/3YBgqGJMtdQlRX8BWSALo8Ixf7P3TGDXf6dOmqmAsgDYaMuYW1nEmj3eVTwBtRppFQO7ypKhA83wn1ZhCQNKEm4v/AAAA//+4tWndAAAABklEQVQDAOZMVWHBj/nxAAAAAElFTkSuQmCC" type="image/png">
+    <style>
+        :root {
+            --bg-color: #121212;
+            --panel-bg: rgba(30, 30, 30, 0.85);
+            --border-color: #444;
+            --text-color: #e0e0e0;
+            --text-color-light: #999;
+            --highlight-color: #00aaff;
+            --danger-color: #ff4d4d;
+        }
+
+        body, html {
+            margin: 0; padding: 0; font-family: Arial, sans-serif;
+            background: var(--bg-color); color: var(--text-color);
+            overflow: hidden; height: 100vh; width: 100vw;
+        }
+
+        #app-container { display: flex; height: 100%; width: 100%; }
+
+        .video-slot {
+            width: 50%; height: 100%; position: relative;
+            display: flex; justify-content: center; align-items: center;
+            border: 2px dashed #333; box-sizing: border-box;
+            transition: border-color 0.3s;
+            cursor: pointer;
+        }
+
+        .video-slot:first-child { border-right: 1px solid #333; }
+        .video-slot:last-child { border-left: 1px solid #333; }
+        .video-slot.dragging-over {
+            border-color: var(--highlight-color);
+            background-color: rgba(0, 170, 255, 0.1);
+        }
+        .video-slot.has-video { border-color: transparent; cursor: default; }
+        .video-slot video { max-width: 100%; max-height: 100%; display: block; }
+
+        .video-overlay { position: absolute; pointer-events: none; }
+        .drop-text { position: absolute; font-size: 1.5em; color: #555; pointer-events: none; }
+        .hidden { display: none !important; }
+
+        #controls {
+            position: absolute; bottom: 20px; left: 50%;
+            transform: translateX(-50%); z-index: 100;
+            display: flex; align-items: center; gap: 15px;
+            padding: 10px 20px;
+            background: var(--panel-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid #333;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        .icon-btn { background: none; border: none; color: var(--text-color); cursor: pointer; padding: 5px; }
+        .icon-btn svg { width: 22px; height: 22px; fill: currentColor; display: block; }
+        .icon-btn.active { color: var(--highlight-color); }
+
+        #time-display-container {
+            color: var(--text-color-light); font-size: 14px; font-family: monospace;
+            min-width: 100px; text-align: center; cursor: pointer;
+        }
+        #time-input {
+            width: 90px; background: rgba(0,0,0,0.5); color: var(--text-color);
+            border: 1px solid var(--highlight-color); border-radius: 4px;
+            text-align: center; padding: 2px; font-family: monospace; font-size: 14px;
+        }
+
+        #timeline-container { position: relative; display: flex; align-items: center; }
+        #timeline-slider {
+            -webkit-appearance: none; appearance: none;
+            width: 450px; height: 8px;
+            background: var(--border-color);
+            border-radius: 5px; outline: none; transition: background 0.1s;
+            cursor: pointer;
+        }
+
+        #timeline-slider::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none;
+            width: 16px; height: 16px; background: #fff;
+            cursor: pointer; border-radius: 50%; margin-top: -4px;
+        }
+
+        #speed-controls { display: flex; background: rgba(0,0,0,0.2); border-radius: 8px; }
+        .speed-btn {
+            background: none; border: none; color: var(--text-color-light);
+            padding: 6px 12px; cursor: pointer; font-size: 14px;
+        }
+        .speed-btn.active { color: #fff; background: var(--highlight-color); border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <input type="file" id="file-input" accept="video/*" style="display: none;">
+
+    <div id="app-container">
+        <div class="video-slot" id="slot-left">
+            <video id="video-left" playsinline></video>
+            <canvas id="canvas-left" class="video-overlay"></canvas>
+            <p class="drop-text" id="drop-text-left">Kéo & Thả hoặc Nhấp đúp để tải Video Trái</p>
+        </div>
+        <div class="video-slot" id="slot-right">
+            <video id="video-right" playsinline></video>
+            <canvas id="canvas-right" class="video-overlay"></canvas>
+            <p class="drop-text" id="drop-text-right">Kéo & Thả hoặc Nhấp đúp để tải Video Phải</p>
+        </div>
+    </div>
+    
+    <div id="controls">
+        <button id="play-pause-btn" class="icon-btn" title="Play/Pause (Spacebar)">
+            <svg id="play-icon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            <svg id="pause-icon" class="hidden" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+        </button>
+        <button id="mute-btn" class="icon-btn" title="Mute/Unmute (M)">
+            <svg id="unmute-icon" class="hidden" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+            <svg id="mute-icon" viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L7 9H3v6h4l5 5v-8.27l-5.73-5.73z"/></svg>
+        </button>
+        <div id="time-display-container">
+            <span id="current-time-display">00:00</span> / <span id="duration-display">00:00</span>
+        </div>
+        <div id="timeline-container">
+            <input type="range" id="timeline-slider" value="0" step="0.01" max="100">
+        </div>
+        <div id="speed-controls">
+            <button class="speed-btn active" data-speed="1">1x</button>
+            <button class="speed-btn" data-speed="2">2x</button>
+            <button class="speed-btn" data-speed="3">3x</button>
+        </div>
+        <button id="compare-btn" class="icon-btn" title="Bật/Tắt so sánh">
+             <svg viewBox="0 0 24 24"><path d="M14 10H2v2h12v-2zm0-4H2v2h12V6zm4 8v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zM2 16h8v-2H2v2z"/></svg>
+        </button>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const fileInput = document.getElementById('file-input');
+            const videoLeft = document.getElementById('video-left');
+            const videoRight = document.getElementById('video-right');
+            const slotLeft = document.getElementById('slot-left');
+            const slotRight = document.getElementById('slot-right');
+            const timeline = document.getElementById('timeline-slider');
+            const playPauseBtn = document.getElementById('play-pause-btn');
+            const playIcon = document.getElementById('play-icon');
+            const pauseIcon = document.getElementById('pause-icon');
+            const muteBtn = document.getElementById('mute-btn');
+            const muteIcon = document.getElementById('mute-icon');
+            const unmuteIcon = document.getElementById('unmute-icon');
+            const compareBtn = document.getElementById('compare-btn');
+            const canvasLeft = document.getElementById('canvas-left');
+            const canvasRight = document.getElementById('canvas-right');
+            const timeDisplayContainer = document.getElementById('time-display-container');
+            const currentTimeDisplay = document.getElementById('current-time-display');
+            const durationDisplay = document.getElementById('duration-display');
+
+            const ctxLeft = canvasLeft.getContext('2d', { willReadFrequently: true });
+            const ctxRight = canvasRight.getContext('2d', { willReadFrequently: true });
+            const offscreenCanvas1 = document.createElement('canvas');
+            const offscreenCanvas2 = document.createElement('canvas');
+            const offscreenCtx1 = offscreenCanvas1.getContext('2d', { willReadFrequently: true });
+            const offscreenCtx2 = offscreenCanvas2.getContext('2d', { willReadFrequently: true });
+            
+            let isComparing = false;
+            let animationFrameId;
+            const DIFF_THRESHOLD = 85;
+            const MIN_DIFF_PIXEL_COUNT = 150;
+            const DIFF_HISTORY_LENGTH = 7;
+            let diffHistory = [];
+
+            const videos = [videoLeft, videoRight];
+            const slots = [slotLeft, slotRight];
+            let readyStates = [false, false];
+            let explicitTargetSlot = null;
+            const FRAME_TIME = 1 / 30;
+
+            videoLeft.muted = false;
+            videoRight.muted = false;
+            updateMuteButton();
+
+            function setupEventListeners(slot, index) {
+                slot.addEventListener('dragover', e => { e.preventDefault(); slot.classList.add('dragging-over'); });
+                slot.addEventListener('dragleave', e => { slot.classList.remove('dragging-over'); });
+                slot.addEventListener('drop', e => {
+                    e.preventDefault(); slot.classList.remove('dragging-over');
+                    const file = e.dataTransfer.files[0];
+                    if (file?.type.startsWith('video/')) loadVideo(index, file);
+                });
+                slot.addEventListener('dblclick', () => {
+                    explicitTargetSlot = index;
+                    fileInput.click();
+                });
+            }
+            slots.forEach(setupEventListeners);
+
+            function handleFileSelect(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const target = explicitTargetSlot ?? (!videoLeft.src ? 0 : !videoRight.src ? 1 : 0);
+                loadVideo(target, file);
+                explicitTargetSlot = null;
+                fileInput.value = '';
+            }
+            
+            function loadVideo(index, file) {
+                const video = videos[index];
+                if (video.src) URL.revokeObjectURL(video.src);
+                video.src = URL.createObjectURL(file);
+                video.setAttribute('src', video.src);
+                
+                document.getElementById(`drop-text-${index === 0 ? 'left' : 'right'}`).classList.add('hidden');
+                slots[index].classList.add('has-video');
+                diffHistory = [];
+
+                video.addEventListener('loadedmetadata', () => {
+                    readyStates[index] = true;
+                    if (readyStates[0] && readyStates[1]) {
+                        isComparing = true;
+                        compareBtn.classList.add('active');
+                        updateComparison();
+                    }
+                    syncTimelineDuration();
+                    resizeCanvases();
+                }, { once: true });
+                video.addEventListener('canplay', resizeCanvases);
+            }
+
+            function syncTimelineDuration() {
+                const duration1 = videoLeft.duration || 0;
+                const duration2 = videoRight.duration || 0;
+                const maxDuration = Math.max(duration1, duration2);
+                if (isFinite(maxDuration)) {
+                    timeline.max = maxDuration;
+                    durationDisplay.textContent = formatTime(maxDuration);
+                }
+                updateTimelineVisuals();
+            }
+
+            function updateTimelineVisuals() {
+                const currentTime = parseFloat(timeline.value);
+                const maxDuration = parseFloat(timeline.max) || 1;
+                const playedPercent = (currentTime / maxDuration) * 100;
+                const styles = getComputedStyle(document.documentElement);
+                const highlightColor = styles.getPropertyValue('--highlight-color').trim();
+                const borderColor = styles.getPropertyValue('--border-color').trim();
+                timeline.style.background = `linear-gradient(to right, ${highlightColor} ${playedPercent}%, ${borderColor} ${playedPercent}%)`;
+            }
+
+            function togglePlayPause() {
+                if (!videoLeft.src || !videoRight.src) return;
+                const isPaused = videoLeft.paused;
+                videos.forEach(v => { if (v.src) isPaused ? v.play() : v.pause(); });
+            }
+
+            function analyzeFrame() {
+                const w = videoLeft.videoWidth;
+                const h = videoLeft.videoHeight;
+                if (w === 0 || h === 0) return { hasDifference: false };
+                
+                offscreenCanvas1.width = w; offscreenCanvas1.height = h;
+                offscreenCanvas2.width = w; offscreenCanvas2.height = h;
+                offscreenCtx1.drawImage(videoLeft, 0, 0, w, h);
+                offscreenCtx2.drawImage(videoRight, 0, 0, w, h);
+
+                const data1 = offscreenCtx1.getImageData(0, 0, w, h).data;
+                const data2 = offscreenCtx2.getImageData(0, 0, w, h).data;
+
+                let minX = w, minY = h, maxX = 0, maxY = 0;
+                let diffPixelCount = 0;
+
+                for (let i = 0; i < data1.length; i += 4) {
+                    const diff = Math.abs(data1[i] - data2[i]) + Math.abs(data1[i+1] - data2[i+1]) + Math.abs(data1[i+2] - data2[i+2]);
+                    if (diff / 3 > DIFF_THRESHOLD) {
+                        diffPixelCount++;
+                        const pixelIndex = i / 4;
+                        const x = pixelIndex % w;
+                        const y = Math.floor(pixelIndex / w);
+                        minX = Math.min(minX, x);
+                        maxX = Math.max(maxX, x);
+                        minY = Math.min(minY, y);
+                        maxY = Math.max(maxY, y);
+                    }
+                }
+                
+                return { hasDifference: diffPixelCount > MIN_DIFF_PIXEL_COUNT, minX, minY, maxX, maxY };
+            }
+
+            function updateComparison() {
+                const canvases = [ctxLeft, ctxRight];
+                if (!isComparing || !readyStates[0] || !readyStates[1]) {
+                    canvases.forEach(ctx => ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height));
+                    return;
+                }
+                
+                const result = analyzeFrame();
+                
+                diffHistory.push(result);
+                if (diffHistory.length > DIFF_HISTORY_LENGTH) {
+                    diffHistory.shift();
+                }
+                
+                canvases.forEach(ctx => ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height));
+                
+                const isConsistentlyDifferent = diffHistory.length === DIFF_HISTORY_LENGTH && diffHistory.every(d => d.hasDifference);
+
+                if (isConsistentlyDifferent) {
+                    const lastResult = diffHistory[diffHistory.length - 1];
+                    const w = videoLeft.videoWidth;
+                    const h = videoLeft.videoHeight;
+                    
+                    videos.forEach((video, index) => {
+                        const scaleX = video.clientWidth / w;
+                        const scaleY = video.clientHeight / h;
+                        const rect = {
+                            x: lastResult.minX * scaleX, y: lastResult.minY * scaleY,
+                            w: (lastResult.maxX - lastResult.minX) * scaleX, h: (lastResult.maxY - lastResult.minY) * scaleY
+                        };
+                        canvases[index].strokeStyle = 'red';
+                        canvases[index].lineWidth = 2;
+                        canvases[index].strokeRect(rect.x, rect.y, rect.w, rect.h);
+                    });
+                }
+            }
+
+            function comparisonLoop() {
+                if (!isComparing || videoLeft.paused) {
+                    stopComparisonLoop(); return;
+                }
+                updateComparison();
+                animationFrameId = requestAnimationFrame(comparisonLoop);
+            }
+            function startComparisonLoop() { if (!animationFrameId) comparisonLoop(); }
+            function stopComparisonLoop() { cancelAnimationFrame(animationFrameId); animationFrameId = null; }
+            
+            function resizeCanvases() {
+                videos.forEach((video, index) => {
+                    const canvas = index === 0 ? canvasLeft : canvasRight;
+                    canvas.width = video.clientWidth; canvas.height = video.clientHeight;
+                    Object.assign(canvas.style, {
+                        width: `${video.clientWidth}px`, height: `${video.clientHeight}px`,
+                        top: `${video.offsetTop}px`, left: `${video.offsetLeft}px`
+                    });
+                });
+                updateComparison();
+            }
+            
+            function seek(time) {
+                diffHistory = [];
+                const validTime = Math.max(0, Math.min(time, timeline.max));
+                videos.forEach(v => { if (v.src) v.currentTime = validTime; });
+                timeline.value = validTime;
+                updateTimelineVisuals();
+            }
+
+            function formatTime(secs) {
+                const m = String(Math.floor(secs / 60)).padStart(2, '0');
+                const s = String(Math.floor(secs % 60)).padStart(2, '0');
+                return `${m}:${s}`;
+            }
+
+            function updateMuteButton() {
+                muteIcon.classList.toggle('hidden', videoLeft.muted);
+                unmuteIcon.classList.toggle('hidden', !videoLeft.muted);
+            }
+
+            fileInput.addEventListener('change', handleFileSelect);
+            window.addEventListener('resize', resizeCanvases);
+            playPauseBtn.addEventListener('click', togglePlayPause);
+            
+            muteBtn.addEventListener('click', () => {
+                const newMutedState = !videoLeft.muted;
+                videos.forEach(v => v.muted = newMutedState);
+                updateMuteButton();
+            });
+
+            compareBtn.addEventListener('click', () => {
+                isComparing = !isComparing;
+                compareBtn.classList.toggle('active', isComparing);
+                updateComparison();
+            });
+
+            timeline.addEventListener('input', () => seek(parseFloat(timeline.value)));
+            
+            videoLeft.addEventListener('seeked', () => {
+                if (videoRight.src) videoRight.currentTime = videoLeft.currentTime;
+                if (videoLeft.paused) updateComparison();
+            });
+            videoLeft.addEventListener('play', () => {
+                playIcon.classList.add('hidden'); pauseIcon.classList.remove('hidden');
+                if (isComparing) startComparisonLoop();
+            });
+            videoLeft.addEventListener('pause', () => {
+                playIcon.classList.remove('hidden'); pauseIcon.classList.add('hidden');
+                stopComparisonLoop();
+                updateComparison();
+            });
+            videoLeft.addEventListener('timeupdate', () => {
+                if (!timeline.matches(':active')) {
+                    const leaderTime = videoLeft.currentTime;
+                    if (videoRight.src && Math.abs(videoRight.currentTime - leaderTime) > 0.1) {
+                         videoRight.currentTime = leaderTime;
+                    }
+                    timeline.value = leaderTime;
+                    currentTimeDisplay.textContent = formatTime(leaderTime);
+                    updateTimelineVisuals();
+                }
+            });
+
+            timeDisplayContainer.addEventListener('click', () => {
+                const timeInput = document.createElement('input');
+                timeInput.id = 'time-input';
+                timeInput.value = currentTimeDisplay.textContent.replace(':', '');
+                
+                const handleTimeSubmit = () => {
+                    const rawValue = timeInput.value.replace(':', '');
+                    const num = parseInt(rawValue, 10);
+                    if (!isNaN(num)) {
+                        const minutes = Math.floor(num / 100);
+                        const seconds = num % 100;
+                        seek(minutes * 60 + seconds);
+                    }
+                    timeInput.replaceWith(currentTimeDisplay, ' / ', durationDisplay);
+                };
+
+                timeInput.addEventListener('keydown', e => {
+                    if (e.key === 'Enter') { e.preventDefault(); handleTimeSubmit(); } 
+                    else if (e.key === 'Escape') { timeInput.replaceWith(currentTimeDisplay, ' / ', durationDisplay); }
+                });
+                timeInput.addEventListener('blur', handleTimeSubmit);
+                
+                timeDisplayContainer.innerHTML = '';
+                timeDisplayContainer.appendChild(timeInput);
+                timeInput.focus(); timeInput.select();
+            });
+
+            window.addEventListener('keydown', (e) => {
+                if (e.target.tagName === 'INPUT') return;
+                if (e.ctrlKey && e.key.toLowerCase() === 'd') {
+                    e.preventDefault(); fileInput.click();
+                }
+                if (!videoLeft.src && !videoRight.src) return;
+
+                switch(e.key.toLowerCase()) {
+                    case ' ': e.preventDefault(); togglePlayPause(); break;
+                    case 'm': e.preventDefault(); muteBtn.click(); break;
+                    case 'arrowright':
+                        e.preventDefault();
+                        seek(videoLeft.currentTime + (e.shiftKey ? 1 : FRAME_TIME));
+                        break;
+                    case 'arrowleft':
+                        e.preventDefault();
+                        seek(videoLeft.currentTime - (e.shiftKey ? 1 : FRAME_TIME));
+                        break;
+                }
+            });
+        });
+    </script>
+</body>
+</html>
