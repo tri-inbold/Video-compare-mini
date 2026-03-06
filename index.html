@@ -31,6 +31,23 @@
             transition: border-color 0.3s;
         }
 
+		.video-title{
+			position:absolute;
+			top:10px;
+			left:50%;
+			transform:translateX(-50%);
+			background:rgba(0,0,0,0.6);
+			padding:4px 10px;
+			border-radius:6px;
+			font-size:13px;
+			color:#fff;
+			max-width:80%;
+			white-space:nowrap;
+			overflow:hidden;
+			text-overflow:ellipsis;
+			pointer-events:none;
+		}
+
         .video-slot:first-child { border-right: 1px solid #333; }
         .video-slot:last-child { border-left: 1px solid #333; }
         .video-slot.dragging-over {
@@ -125,10 +142,12 @@
 
     <div id="app-container">
         <div class="video-slot" id="slot-left">
+			<div class="video-title" id="title-left"></div>
             <video id="video-left" playsinline></video>
             <p class="drop-text" id="drop-text-left">Kéo & Thả Video Trái (hoặc Ctrl+D)</p>
         </div>
         <div class="video-slot" id="slot-right">
+			<div class="video-title" id="title-right"></div>
             <video id="video-right" playsinline></video>
             <p class="drop-text" id="drop-text-right">Kéo & Thả Video Phải (hoặc Ctrl+D)</p>
         </div>
@@ -227,6 +246,9 @@
                 video.src = URL.createObjectURL(file);
                 video.setAttribute('src', video.src);
                 
+				document.getElementById(index === 0 ? 'title-left' : 'title-right').textContent = file.name;
+
+				
                 document.getElementById(`drop-text-${index === 0 ? 'left' : 'right'}`).classList.add('hidden');
                 slots[index].classList.add('has-video');
 
@@ -248,15 +270,14 @@
                     timeline.max = maxDuration;
                     durationDisplay.textContent = formatTime(maxDuration);
                 }
-                updateTimelineVisuals(); // NEW: Update visuals whenever durations change
+                updateTimelineVisuals();
             }
 
-            // NEW: Function to update the timeline's background gradient
             function updateTimelineVisuals() {
                 const currentTime = parseFloat(timeline.value);
                 const duration1 = videoLeft.src ? videoLeft.duration : 0;
                 const duration2 = videoRight.src ? videoRight.duration : 0;
-                const maxDuration = parseFloat(timeline.max) || 1; // Avoid division by zero
+                const maxDuration = parseFloat(timeline.max) || 1; 
                 const minDuration = Math.min(duration1 || Infinity, duration2 || Infinity);
 
                 const playedPercent = (currentTime / maxDuration) * 100;
@@ -268,7 +289,6 @@
 
                 let backgroundGradient;
 
-                // Only show red if two videos are loaded and have different durations
                 if (duration1 > 0 && duration2 > 0 && minDuration < maxDuration) {
                     const commonPercent = (minDuration / maxDuration) * 100;
                     backgroundGradient = `linear-gradient(to right, 
@@ -277,7 +297,6 @@
                         ${borderColor} ${commonPercent}%, 
                         ${dangerColor} ${commonPercent}%)`;
                 } else {
-                    // Default case: one video or two videos of same length
                     backgroundGradient = `linear-gradient(to right, 
                         ${highlightColor} ${playedPercent}%, 
                         ${borderColor} ${playedPercent}%)`;
@@ -327,7 +346,7 @@
                 const validTime = Math.max(0, Math.min(time, timeline.max));
                 timeline.value = validTime;
                 videos.forEach(v => { if(v.src) v.currentTime = validTime; });
-                updateTimelineVisuals(); // NEW: Update visuals on seek
+                updateTimelineVisuals(); 
             }
 
             playPauseBtn.addEventListener('click', togglePlayPause);
@@ -336,14 +355,14 @@
             timeline.addEventListener('input', () => {
                 const time = timeline.value;
                 videos.forEach(v => v.currentTime = time);
-                updateTimelineVisuals(); // NEW: Update visuals while dragging
+                updateTimelineVisuals(); 
             });
             
             videoLeft.addEventListener('timeupdate', () => {
                 if (!timeline.matches(':active')) {
                     timeline.value = videoLeft.currentTime;
                     currentTimeDisplay.textContent = formatTime(videoLeft.currentTime);
-                    updateTimelineVisuals(); // NEW: Update visuals on timeupdate
+                    updateTimelineVisuals();
                 }
             });
 
